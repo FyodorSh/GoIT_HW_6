@@ -68,6 +68,7 @@
 import re
 import sys
 import os
+from pprint import pprint
 
 CYRILLIC_SYMBOLS = "абвгдеёжзийклмнопрстуфхцчшщъыьэюяєіїґ"
 TRANSLATION = (
@@ -76,9 +77,13 @@ TRANSLATION = (
 
 TRANS = {}
 
-EXTENSIONS = {"PICS": ('JPEG', 'PNG', 'JPG', 'SVG'), "VIDEOS": ('AVI', 'MP4', 'MOV', 'MKV'),
-              "DOCS": ('DOC', 'DOCX', 'TXT', 'PDF', 'XLSX', 'PPTX'), "MUSIC": ('MP3', 'OGG', 'WAV', 'AMR'),
-              "ARCHIVES": ('ZIP', 'RAR', '7ZIP', '7Z', 'GZ', 'TAR')}
+EXTENSIONS = {('JPEG', 'PNG', 'JPG', 'SVG'): "images", ('AVI', 'MP4', 'MOV', 'MKV'): "video",
+              ('DOC', 'DOCX', 'TXT', 'PDF', 'XLSX', 'PPTX'): "documents",  ('MP3', 'OGG', 'WAV', 'AMR'): "audio",
+              ('ZIP', 'RAR', '7ZIP', '7Z', 'GZ', 'TAR'): "archives"}
+
+SORT_DIRS = dict()
+
+FILES = {}
 
 for c, l in zip(CYRILLIC_SYMBOLS, TRANSLATION):
     TRANS[ord(c)] = l
@@ -89,23 +94,50 @@ def translit(input_string: str) -> str:
     return input_string.translate(TRANS)
 
 
-def normalize(path: str):
-    return path
+def normalize(file_name: str):
+    regex = r"[^a-zA-Z0-9.]"
+    subst = "_"
+    file_name = re.sub(regex, subst, translit(file_name), 0, re.MULTILINE)
+    return file_name
 
 
-# def check_dir(path):
+def check_dir(current_path: str):
+    for file in os.listdir(current_path):
+        file_path = os.path.join(current_path, file)
+        if os.path.isdir(file_path):
+            check_dir(file_path)
+
+        file_ext = os.path.splitext(file)[1].replace(".", "").upper()
+
+        directory = ""
+        for ext in EXTENSIONS:
+            if file_ext in ext:
+                directory = EXTENSIONS.get(ext)
+                os.replace(file_path, os.path.join(SORT_DIRS.get(directory), normalize(file)))
+        # pprint(translit(file_path) + " ---> " + directory)
 
 
-def main():
-    path = sys.argv[1]
+def create_sort_dir(start_path):
+    for ext in EXTENSIONS:
+        sort_dir = EXTENSIONS.get(ext)
+        sort_dir_path = os.path.join(start_path, sort_dir)
+        if not os.path.exists(sort_dir_path):
+            os.mkdir(sort_dir_path)
+        SORT_DIRS.update({sort_dir: sort_dir_path})
 
-    for elem in os.listdir(path):
-        prefix = ""
-        print(elem)
-
-
-    normalize("")
+def main(start_path):
+    create_sort_dir(start_path)
+    check_dir(start_path)
+    # if not os.path.exists(os.path.join(path,"images")):
+    #     os.makedirs(os.path.join(path,"images"))
+    # os.replace(old, new)
+    # os.remove(old)
 
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) > 1:
+        start_path = sys.argv[1]
+    else:
+        start_path = "i:\\test_dir\\"
+
+    main(start_path)
